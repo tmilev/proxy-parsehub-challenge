@@ -1,0 +1,21 @@
+{
+  "name": "proxy-parsehub-challenge",
+  "version": "1.0.0",
+  "description": "Proxy for parsehub challenge",
+  "main": "src/app.js",
+  "scripts": {
+    "serve": "node src/app.js",
+    "develop": "nodemon src/app.js",
+    "test": "test"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/tmilev/proxy-parsehub-challenge.git"
+  },
+  "author": "Todor Milev",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/tmilev/proxy-parsehub-challenge/issues"
+  },
+  "homepage": "https://github.com/tmilev/proxy-parsehub-challenge#readme"
+}
