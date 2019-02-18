@@ -33,3 +33,23 @@ or
 ```
 node src/app.js
 ```
+
+The server runs on port 9001.
+
+4. To test manually, open the file 
+
+[test_links.html](test_links.html)
+
+4.1. GET tests.
+- Stat link: A simple GET request that displays server statistics. 
+- Proxy link redirecting to the stat link above.
+- Proxy to google.com
+- Proxy to httpbin.org/get
+- Proxy to proxy to httpbin.org
+
+4.2. POST tests
+- Stat link: a simple POST request, no proxies.
+- Stat link with a large post body: a simply POST request with 10MB message body.
+- Proxy to the stat link.
+- Proxy to the stat link with 10MB message body.
+- 100x10MB proxies to the stat link.
