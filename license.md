@@ -1,4 +1,4 @@
-Copyright (c) 2018 Todor Milev
+Copyright (c) 2019 Todor Milev
 
 Distributed under the MIT software license,
 
