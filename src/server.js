@@ -3,11 +3,18 @@ const colors = require('colors');
 const validURL = require('valid-url');
 const url = require('url');
 
-function ResponseWrapper (response, ownerServer) {
+function ResponseWrapper(
+  /**@type {http.ServerResponse} */
+  response, 
+  /**@type{Server}*/ 
+  ownerServer,
+) {
+  /**@type{Server}*/
   this.server = ownerServer;
+  /**@type{http.ServerResponse}*/
   this.response = response;
-  this.server.requestsOpen ++;
-  this.server.requestsReceived ++;
+  this.server.userRequestCounts.currentlyOpen ++;
+  this.server.userRequestCounts.received ++;
 }
 
 ResponseWrapper.prototype.writeHead = function(input, headers) {
@@ -15,9 +22,10 @@ ResponseWrapper.prototype.writeHead = function(input, headers) {
 }
 
 ResponseWrapper.prototype.accountWrite = function(input) {
-  this.server.requestsOpen --;
+  this.server.userRequestCounts.currentlyOpen --;
+  this.server.userRequestCounts.finished ++;
   if (input !== null && input !== undefined) {
-    this.server.bytesToUserNoHeaders += input.length;
+    this.server.bytesStats += input.length;
   }
 }
 
@@ -34,13 +42,26 @@ ResponseWrapper.prototype.end = function(input) {
 function Server (configuration) {
   this.portHttp = configuration.portHttp;
   this.serverHTTP = null;
-  this.bytesToUserNoHeaders = 0;
-  this.bytesFromRemoteNoHeaders = 0;
-  this.requestsOpen = 0;
-  this.requestsReceived = 0;
-  this.maxOpenRequests = configuration.maxOpenRequests;
+  this.bytesPOSTBody = {
+    toUser: 0,
+    fromUser: 0,
+    toRemote: 0,
+    fromRemote: 0,
+  };
+  this.errorCounts = {
+    toRemote: 0,
+    fromRemote: 0,
+  };
+  this.userRequestCounts = {
+    currentlyOpen: 0,
+    received: 0,
+    finished: 0,
+  };
+  ///////////////////////////
+  //////////////////////////
+  //api call specifications:
   this.apiCalls = {
-    echo: this.echo.bind(this),
+    stats: this.stats.bind(this),
     proxy: this.proxy.bind(this),
   };
   this.maxEntryPointLength = 0;
@@ -79,11 +100,10 @@ Server.prototype.handler = function (
   // if request.url is "/proxy/someURL", then apiCall is "proxy"
   // and apiArguments will be "someURL"
   var apiArguments = request.url.substring(apiCall.length + 2);
-  console.log(`DEBUG: API call: ${apiCall}, arguments: ${apiArguments}`);
   this.apiCalls[apiCall](request, response, apiArguments);
 }
 
-Server.prototype.echo = function (
+Server.prototype.stats = function (
   /**@type {http.IncomingMessage} */ 
   request, 
   /**@type {ResponseWrapper} */
@@ -93,22 +113,28 @@ Server.prototype.echo = function (
 ) {
   response.writeHead(200, {"Access-Control-Allow-Origin": "*"});
   var summary = {};
-  summary.requestsReceived = this.requestsReceived;
-  summary.pendingRequests = this.requestsOpen;
+  summary.bytesPOSTStats  = this.bytesPOSTStats;
+  summary.errorCounts = this.errorCounts;
+  summary.userRequestCounts = this.userRequestCounts;
   summary.headers = request.headers; 
+  /////////////////////
+  //stats about incoming message:
   summary.url = request.url;
   summary.method = request.method;
   summary.apiArguments = apiArguments;
+  summary.bytesPOSTStats = this.bytesPOSTBody;
+  summary.errorCounts = this.errorCounts;
   if (request.method !== "POST") {
     response.end(JSON.stringify(summary));
     return;
   }
-  summary.bytesReceived = 0;
-  request.on('data', (chunk)=>{
-    summary.bytesReceived += chunk.length;
+  summary.bytesReceivedInBodyOfThisMessage = 0;
+  request.on('data', (chunk) => {
+    this.bytesPOSTBody.fromUser += chunk.length;
+    summary.bytesReceivedInBodyOfThisMessage += chunk.length;
   });
 
-  request.on('end', ()=>{
+  request.on('end', () => {
     response.end(JSON.stringify(summary));
   });
 }
@@ -121,6 +147,11 @@ Server.prototype.proxy = function (
   /**@type {string} */
   apiArguments
 ) {
+  if (request.method !== "POST" && request.method !== "GET") {
+    response.writeHead(500);
+    response.end(`Method ${request.method} not supported. `);
+    return;
+  }
   // Not using CONNECT request or similar, as the parseHub challenge requests to use post and get. 
   // This may actually be a good idea as not all servers support the CONNECT method. 
   var valid = validURL.isHttpUri(apiArguments);
@@ -150,7 +181,28 @@ Server.prototype.proxy = function (
     this.handleRemoteReponse.bind(this, response),
   );
   proxyRequest.on('error', this.handleRemoteError.bind(this, response));
-  proxyRequest.end();
+  if (request.method === "GET") {
+    proxyRequest.end();
+    return;
+  }
+  /////////////////////////////
+  if (request.method === "POST") {
+    request.on('data', (chunk) => {
+      this.bytesPOSTBody.fromUser += chunk.length;
+      this.bytesPOSTBody.toRemote += chunk.length;
+      proxyRequest.write(chunk);
+    });
+    request.on('error', (err) => {
+      console.log(`User request error: ` + `${err}`.red);
+      this.errorCounts.fromUser += chunk.length;
+      proxyRequest.end();
+    });
+    request.on('end', () => {
+      proxyRequest.end();
+    });
+    return;
+  }
+  throw(`Programming error: request.method must be POST or GET at this stage, it is: ${request.method} instead. `);
 }
 
 Server.prototype.handleRemoteError = function(  
@@ -171,14 +223,14 @@ Server.prototype.handleRemoteReponse = function(
   /**@type {http.ServerResponse} */
   responseRemote,
 ) {
-  console.log("Handling remote response ....");
   responseToUser.writeHead(responseRemote.statusCode, responseRemote.headers);
   responseRemote.on('data', (chunk) => {
-    console.log(`Writing chunk of length ${chunk} bytes. `);
+    this.bytesPOSTBody.fromRemote += chunk.length;
+    this.bytesPOSTBody.toUser += chunk.length;
     responseToUser.write(chunk);
-
   });
   responseRemote.on('error', () => {
+    this.errorCounts.fromRemote ++;
     responseToUser.end();
   });
   responseRemote.on('end', () => {

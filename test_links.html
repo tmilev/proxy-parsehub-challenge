@@ -2,29 +2,43 @@
 <script>
 "use script";
 
+function statsPOST() {
+  var url = "http://localhost:9001/stats";
+  doPOST(url, "A short message to bounce back.");
+}
+
+function statsPOSTLarge() {
+  var url = "http://localhost:9001/stats";
+  var numBytes = 10000000; //10 milllion
+  var largeString = "a".repeat(numBytes);
+  doPOST(url, largeString);
+}
+
 
 function smallPOST() {
-  doPOST("A short message to bounce back.");
+  var url = "http://localhost:9001/proxy/http://localhost:9001/stats";
+  doPOST(url, "A short message to bounce back.");
 }
 
 function largePOST() {
+  var url = "http://localhost:9001/proxy/http://localhost:9001/stats";
   var numBytes = 10000000; //10 milllion
   var largeString = "a".repeat(numBytes);
-  doPOST(largeString);
+  doPOST(url, largeString);
 }
 
 function largerPOST() {
+  var url = "http://localhost:9001/proxy/http://localhost:9001/stats";
   var numBytes = 10000000; //10 milllion
   var largeString = "a".repeat(numBytes);
   for (var i = 0; i < 100; i ++) {
     setTimeout(() => {
-      doPOST(largeString);
+      doPOST(url, largeString);
     }, 0); 
   }
 }
 
-function doPOST(postBody) {
-  var url = "http://localhost:9001/proxy/http://localhost:9001/echo";
+function doPOST(url, postBody) {
   var thePOST = new XMLHttpRequest();
   thePOST.open("POST", url);
   thePOST.onload = function () {
@@ -39,12 +53,22 @@ function doPOST(postBody) {
     Open this file in your browser and click the links to manually test the server. 
     The tests below can easily be automated - and should, if this code is to ever be reused in a bigger project.
     <br>
-    <a href = "http://localhost:9001/echo">Echo</a><br>
-    <a href = "http://localhost:9001/proxy/http://localhost:9001/echo">proxy-echo</a><br>
-    <a href = "http://localhost:9001/proxy/http://google.com">proxy-google</a><br>
-    <button onclick = "smallPOST()">small POST</button><br>
-    <button onclick = "largePOST()">10m bytes POST</button><br>
-    <button onclick = "largerPOST()">100x10m bytes POST</button><br>
-    <div id = "divPOSTResult"></div>
-  </body>
+
+    GET
+    <ul>
+      <li><a href = "http://localhost:9001/stats">stats</a></li>
+      <li><a href = "http://localhost:9001/proxy/http://localhost:9001/stats">proxy-stats</a></li>
+      <li><a href = "http://localhost:9001/proxy/http://google.com">proxy-google</a></li>
+    </ul>
+    POST
+    <ul>
+
+    <li><button onclick = "statsPOST()">stats POST</button><br></li>
+    <li><button onclick = "statsPOSTLarge()">stats large POST</button><br></li>
+    <li><button onclick = "smallPOST()">proxy small POST</button><br></li>
+    <li><button onclick = "largePOST()">proxy 10m bytes POST</button><br></li>
+    <li><button onclick = "largerPOST()">proxy 100x10m bytes POST</button><br></li>
+    </ul>
+      <div id = "divPOSTResult"></div>
+    </body>
 </html>
