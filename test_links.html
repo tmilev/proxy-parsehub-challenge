@@ -1,0 +1,50 @@
+<html>
+<script>
+"use script";
+
+
+function smallPOST() {
+  doPOST("A short message to bounce back.");
+}
+
+function largePOST() {
+  var numBytes = 10000000; //10 milllion
+  var largeString = "a".repeat(numBytes);
+  doPOST(largeString);
+}
+
+function largerPOST() {
+  var numBytes = 10000000; //10 milllion
+  var largeString = "a".repeat(numBytes);
+  for (var i = 0; i < 100; i ++) {
+    setTimeout(() => {
+      doPOST(largeString);
+    }, 0); 
+  }
+}
+
+function doPOST(postBody) {
+  var url = "http://localhost:9001/proxy/http://localhost:9001/echo";
+  var thePOST = new XMLHttpRequest();
+  thePOST.open("POST", url);
+  thePOST.onload = function () {
+    document.getElementById("divPOSTResult").innerHTML = thePOST.responseText;
+  }
+  thePOST.send(postBody);
+}
+
+</script>
+  <body>
+    Below are some links with which to test whether the proxy works. 
+    Open this file in your browser and click the links to manually test the server. 
+    The tests below can easily be automated - and should, if this code is to ever be reused in a bigger project.
+    <br>
+    <a href = "http://localhost:9001/echo">Echo</a><br>
+    <a href = "http://localhost:9001/proxy/http://localhost:9001/echo">proxy-echo</a><br>
+    <a href = "http://localhost:9001/proxy/http://google.com">proxy-google</a><br>
+    <button onclick = "smallPOST()">small POST</button><br>
+    <button onclick = "largePOST()">10m bytes POST</button><br>
+    <button onclick = "largerPOST()">100x10m bytes POST</button><br>
+    <div id = "divPOSTResult"></div>
+  </body>
+</html>
